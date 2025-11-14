@@ -146,7 +146,7 @@ funcional.
 Además, se documentaron las pruebas y resultados en un archivo aparte:
 
 👉 **[Ver documento de pruebas del CRUD de
-Users](./docs/pruebas-users.md)**\
+Users](./docs/pruebas-users.md)**
 
 ### **POST /users**
 

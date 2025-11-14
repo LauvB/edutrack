@@ -18,10 +18,9 @@ entidad Users**, incluyendo:
 
 **Request**
 
-```json
-POST http://localhost:3000/users
-Content-Type: application/json
+    POST http://localhost:3000/users
 
+```json
 {
   "nombreCompleto": "Laura Beltrán",
   "correo": "laura@example.com",
@@ -124,10 +123,9 @@ Content-Type: application/json
 
 **Request**
 
-```json
 PATCH http://localhost:3000/users/0ac480f7-f989-4b74-b900-5109fe4eb106
-Content-Type: application/json
 
+```json
 {
   "nombreCompleto": "Laura Vanesa Beltrán"
 }
