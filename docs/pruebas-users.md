@@ -123,7 +123,7 @@ entidad Users**, incluyendo:
 
 **Request**
 
-PATCH http://localhost:3000/users/0ac480f7-f989-4b74-b900-5109fe4eb106
+    PATCH http://localhost:3000/users/0ac480f7-f989-4b74-b900-5109fe4eb106
 
 ```json
 {
