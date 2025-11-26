@@ -7,8 +7,8 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Professor } from '../interfaces/professor.interface';
-import { UserEntity } from 'src/users/entities/user.entity';
-import { CourseEntity } from 'src/courses/entities/course.entity';
+import { UserEntity } from '../../users/entities/user.entity';
+import { CourseEntity } from '../../courses/entities/course.entity';
 
 @Entity({ name: 'professors' })
 export class ProfessorEntity implements Professor {
@@ -18,7 +18,7 @@ export class ProfessorEntity implements Professor {
   @Column('text')
   especialidad: string;
 
-  @OneToOne(() => UserEntity, { eager: true })
+  @OneToOne(() => UserEntity, { eager: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   usuario: UserEntity;
 

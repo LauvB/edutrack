@@ -1,4 +1,4 @@
-import { ProfessorEntity } from 'src/professors/entities/professor.entity';
+import { ProfessorEntity } from '../../professors/entities/professor.entity';
 import { Course } from '../interfaces/course.interface';
 import {
   Entity,
@@ -7,7 +7,7 @@ import {
   ManyToOne,
   OneToMany,
 } from 'typeorm';
-import { EnrollmentEntity } from 'src/enrollments/entities/enrollment.entity';
+import { EnrollmentEntity } from '../../enrollments/entities/enrollment.entity';
 
 @Entity({ name: 'courses' })
 export class CourseEntity implements Course {

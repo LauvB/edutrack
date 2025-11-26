@@ -7,7 +7,12 @@ import {
 } from 'class-validator';
 
 export class CreateEnrollmentDto {
-  @IsDateString()
+  @IsDateString(
+    {},
+    {
+      message: 'La fecha de inscripción debe tener formato YYYY-MM-DD',
+    },
+  )
   @IsNotEmpty()
   fechaInscripcion: Date;
 

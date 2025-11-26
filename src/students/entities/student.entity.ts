@@ -7,8 +7,8 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Student } from '../interfaces/student.interface';
-import { UserEntity } from 'src/users/entities/user.entity';
-import { EnrollmentEntity } from 'src/enrollments/entities/enrollment.entity';
+import { UserEntity } from '../../users/entities/user.entity';
+import { EnrollmentEntity } from '../../enrollments/entities/enrollment.entity';
 
 @Entity('students')
 export class StudentEntity implements Student {
@@ -16,12 +16,14 @@ export class StudentEntity implements Student {
   id: string;
 
   @Column({ name: 'año_ingreso' })
-  añoIngreso: number;
+  anioIngreso: number;
 
-  @OneToOne(() => UserEntity, { eager: true })
+  @OneToOne(() => UserEntity, { eager: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   usuario: UserEntity;
 
-  @OneToMany(() => EnrollmentEntity, (ins) => ins.estudiante)
+  @OneToMany(() => EnrollmentEntity, (ins) => ins.estudiante, {
+    cascade: ['remove'],
+  })
   inscripciones: EnrollmentEntity[];
 }

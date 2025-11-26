@@ -6,6 +6,7 @@ import { StudentsModule } from './students/students.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { CoursesModule } from './courses/courses.module';
 import { ProfessorsModule } from './professors/professors.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -31,6 +32,8 @@ import { ProfessorsModule } from './professors/professors.module';
     CoursesModule,
 
     EnrollmentsModule,
+
+    AuthModule,
   ],
   controllers: [],
   providers: [],

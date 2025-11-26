@@ -4,11 +4,15 @@ import { ProfessorsController } from './professors.controller';
 import { ProfessorEntity } from './entities/professor.entity';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserEntity } from 'src/users/entities/user.entity';
 
 @Module({
   controllers: [ProfessorsController],
   providers: [ProfessorsService],
-  imports: [ConfigModule, TypeOrmModule.forFeature([ProfessorEntity])],
+  imports: [
+    ConfigModule,
+    TypeOrmModule.forFeature([ProfessorEntity, UserEntity]),
+  ],
   exports: [ProfessorsService, TypeOrmModule],
 })
 export class ProfessorsModule {}
