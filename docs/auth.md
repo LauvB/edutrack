@@ -99,7 +99,7 @@ Cada uno tiene permisos específicos documentados en:
 
 ## AuthGuard('jwt')
 
-Protege rutas que requieren usuario atenticado.
+Protege rutas que requieren usuario autenticado.
 
 Ejemplo:
 
