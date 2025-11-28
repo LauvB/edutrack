@@ -13,44 +13,46 @@ import { CoursesService } from './courses.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { GetUser } from '../auth/decorators/get-user.decorator';
 
 @Controller('courses')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('profesor', 'admin')
   @Post()
-  createCourse(@Body() dto: CreateCourseDto) {
-    return this.coursesService.createCourse(dto);
+  createCourse(@Body() dto: CreateCourseDto, @GetUser() user: any) {
+    return this.coursesService.createCourse(dto, user);
   }
 
+  @Roles('admin', 'profesor', 'estudiante')
   @Get('getAllCourses')
-  findAll() {
-    return this.coursesService.findAll();
+  findAll(@GetUser() user: any) {
+    return this.coursesService.findAll(user);
   }
 
+  @Roles('admin', 'profesor', 'estudiante')
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.coursesService.findOneById(id);
+  findOne(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: any) {
+    return this.coursesService.findOneById(id, user);
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('profesor', 'admin')
   @Patch(':id')
   updateCourse(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCourseDto,
+    @GetUser() user: any,
   ) {
-    return this.coursesService.updateCourse(id, dto);
+    return this.coursesService.updateCourse(id, dto, user);
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('profesor', 'admin')
   @Delete(':id')
-  removeCourse(@Param('id', ParseUUIDPipe) id: string) {
-    return this.coursesService.removeCourse(id);
+  removeCourse(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: any) {
+    return this.coursesService.removeCourse(id, user);
   }
 }

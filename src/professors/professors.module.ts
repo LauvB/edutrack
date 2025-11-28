@@ -5,6 +5,8 @@ import { ProfessorEntity } from './entities/professor.entity';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from 'src/users/entities/user.entity';
+import { UsersModule } from 'src/users/users.module';
+import { CoursesModule } from 'src/courses/courses.module';
 
 @Module({
   controllers: [ProfessorsController],
@@ -12,6 +14,8 @@ import { UserEntity } from 'src/users/entities/user.entity';
   imports: [
     ConfigModule,
     TypeOrmModule.forFeature([ProfessorEntity, UserEntity]),
+    UsersModule,
+    CoursesModule,
   ],
   exports: [ProfessorsService, TypeOrmModule],
 })

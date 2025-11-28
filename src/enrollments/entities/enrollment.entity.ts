@@ -15,7 +15,10 @@ export class EnrollmentEntity implements Enrollment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'fecha_inscripcion', type: 'date' })
+  @Column({
+    name: 'fecha_inscripcion',
+    type: 'date',
+  })
   fechaInscripcion: Date;
 
   @Column({ nullable: true })

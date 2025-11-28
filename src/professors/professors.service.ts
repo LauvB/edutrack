@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -66,7 +67,7 @@ export class ProfessorsService {
     try {
       const professors: ProfessorEntity[] =
         await this.professorsRepository.find();
-      return { professors };
+      return professors;
     } catch (error) {
       this.handleErrors(error);
     }
@@ -90,15 +91,45 @@ export class ProfessorsService {
     }
   }
 
-  async updateProfessor(id: string, dto: UpdateProfessorDto) {
+  async findByUserId(userId: string) {
+    const professor = await this.professorsRepository.findOne({
+      where: { usuario: { id: userId } },
+      relations: ['usuario', 'cursos'],
+    });
+
+    if (!professor) {
+      throw new NotFoundException(
+        `No existe un profesor asociado al usuario con id ${userId}`,
+      );
+    }
+
+    return professor;
+  }
+
+  async updateProfessor(id: string, dto: UpdateProfessorDto, currentUser: any) {
     try {
-      const professor = await this.professorsRepository.preload({
-        id,
-        ...dto,
+      const professor = await this.professorsRepository.findOne({
+        where: { id },
+        relations: ['usuario'],
       });
 
       if (!professor) {
         throw new NotFoundException(`Profesor con id ${id} no encontrado`);
+      }
+
+      if (currentUser.rol !== 'admin') {
+        if (professor.usuario.id !== currentUser.id) {
+          throw new ForbiddenException('No puede actualizar este perfil.');
+        }
+      }
+
+      const updatedProfessor = await this.professorsRepository.preload({
+        id,
+        ...dto,
+      });
+
+      if (!updatedProfessor) {
+        throw new NotFoundException(`Error al actualizar el profesor`);
       }
 
       // Si quiere reasignar el usuario
@@ -129,19 +160,26 @@ export class ProfessorsService {
           );
         }
 
-        professor.usuario = user;
+        updatedProfessor.usuario = user;
       }
 
-      await this.professorsRepository.save(professor);
-      return professor;
+      await this.professorsRepository.save(updatedProfessor);
+      return updatedProfessor;
     } catch (error) {
       this.handleErrors(error);
     }
   }
 
-  async removeProfessor(id: string) {
+  async removeProfessor(id: string, currentUser: any) {
     try {
       const professor = await this.findOneById(id);
+
+      if (currentUser.rol !== 'admin') {
+        if (professor.usuario.id !== currentUser.id) {
+          throw new ForbiddenException('No puede eliminar este perfil.');
+        }
+      }
+
       await this.professorsRepository.remove(professor);
       return `Profesor con id ${id} eliminado correctamente`;
     } catch (error) {

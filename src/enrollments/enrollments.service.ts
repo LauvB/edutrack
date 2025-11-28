@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -28,10 +29,11 @@ export class EnrollmentsService {
     private readonly coursesRepository: Repository<CourseEntity>,
   ) {}
 
-  async createEnrollment(dto: CreateEnrollmentDto) {
+  async createEnrollment(dto: CreateEnrollmentDto, currentUser: any) {
     try {
-      const student = await this.studentsRepository.findOneBy({
-        id: dto.studentId,
+      const student = await this.studentsRepository.findOne({
+        where: { id: dto.studentId },
+        relations: ['usuario'],
       });
 
       if (!student)
@@ -39,14 +41,31 @@ export class EnrollmentsService {
           `No existe el estudiante con id ${dto.studentId}`,
         );
 
-      const course = await this.coursesRepository.findOneBy({
-        id: dto.courseId,
+      const course = await this.coursesRepository.findOne({
+        where: { id: dto.courseId },
+        relations: ['profesor', 'profesor.usuario'],
       });
 
       if (!course)
         throw new NotFoundException(
           `No existe el curso con id ${dto.courseId}`,
         );
+
+      if (currentUser.rol !== 'admin') {
+        if (currentUser.rol === 'estudiante') {
+          if (student.usuario.id !== currentUser.id) {
+            throw new ForbiddenException(
+              'Solo puedes crear inscripciones para ti mismo.',
+            );
+          }
+        }
+
+        if (currentUser.rol === 'profesor') {
+          throw new ForbiddenException(
+            'Los profesores no pueden crear inscripciones.',
+          );
+        }
+      }
 
       const fecha = new Date(dto.fechaInscripcion);
       if (isNaN(fecha.getTime())) {
@@ -83,80 +102,205 @@ export class EnrollmentsService {
     }
   }
 
-  async findAll() {
+  async findAll(currentUser: any) {
     try {
-      const enrollments: EnrollmentEntity[] =
-        await this.enrollmentsRepository.find();
-      return { enrollments };
+      if (currentUser.rol === 'admin') {
+        return await this.enrollmentsRepository.find({
+          relations: [
+            'estudiante',
+            'estudiante.usuario',
+            'curso',
+            'curso.profesor',
+            'curso.profesor.usuario',
+          ],
+        });
+      }
+
+      if (currentUser.rol === 'estudiante') {
+        return await this.enrollmentsRepository.find({
+          where: { estudiante: { usuario: { id: currentUser.id } } },
+          relations: ['estudiante', 'curso'],
+        });
+      }
+
+      if (currentUser.rol === 'profesor') {
+        return await this.enrollmentsRepository
+          .find({
+            relations: [
+              'estudiante',
+              'estudiante.usuario',
+              'curso',
+              'curso.profesor',
+              'curso.profesor.usuario',
+            ],
+          })
+          .then((all) =>
+            all.filter(
+              (ins) => ins.curso.profesor.usuario.id === currentUser.id,
+            ),
+          );
+      }
+
+      throw new ForbiddenException(
+        'No tienes permisos para ver inscripciones.',
+      );
     } catch (error) {
       this.handlerErrors(error);
     }
   }
 
-  async findOneById(id: string) {
+  async findOneById(id: string, currentUser: any) {
     if (!isUUID(id)) {
       throw new BadRequestException('El id no es válido');
     }
 
     try {
-      const enrollment = await this.enrollmentsRepository.findOneBy({ id });
+      const enrollment = await this.enrollmentsRepository.findOne({
+        where: { id },
+        relations: [
+          'estudiante',
+          'estudiante.usuario',
+          'curso',
+          'curso.profesor',
+          'curso.profesor.usuario',
+        ],
+      });
 
-      if (!enrollment)
-        throw new NotFoundException(`Inscripción con id ${id} no encontrada`);
+      if (!enrollment) {
+        throw new NotFoundException('Inscripción no encontrada.');
+      }
 
-      return enrollment;
+      if (currentUser.rol === 'admin') return enrollment;
+
+      if (currentUser.rol === 'estudiante') {
+        if (enrollment.estudiante.usuario.id !== currentUser.id) {
+          throw new ForbiddenException(
+            'Solo puedes ver tus propias inscripciones.',
+          );
+        }
+        return enrollment;
+      }
+
+      if (currentUser.rol === 'profesor') {
+        if (enrollment.curso.profesor.usuario.id !== currentUser.id) {
+          throw new ForbiddenException(
+            'No puedes ver inscripciones de cursos que no dictas.',
+          );
+        }
+        return enrollment;
+      }
+
+      throw new ForbiddenException('Acceso denegado.');
     } catch (error) {
       this.handlerErrors(error);
     }
   }
 
-  async updateEnrollment(id: string, dto: UpdateEnrollmentDto) {
-    const enrollment = await this.enrollmentsRepository.preload({
-      id,
-      ...dto,
-      fechaInscripcion: dto.fechaInscripcion
-        ? new Date(dto.fechaInscripcion)
-        : undefined,
+  async updateEnrollment(
+    id: string,
+    dto: UpdateEnrollmentDto,
+    currentUser: any,
+  ) {
+    const enrollment = await this.enrollmentsRepository.findOne({
+      where: { id },
+      relations: [
+        'estudiante',
+        'estudiante.usuario',
+        'curso',
+        'curso.profesor',
+        'curso.profesor.usuario',
+      ],
     });
 
     if (!enrollment) {
       throw new NotFoundException(`Inscripción con id ${id} no encontrada`);
     }
 
-    // Cambiar estudiante
+    if (currentUser.rol === 'estudiante') {
+      throw new ForbiddenException(
+        'Los estudiantes no pueden actualizar inscripciones.',
+      );
+    }
+
+    if (currentUser.rol === 'profesor') {
+      if (
+        !enrollment.curso.profesor ||
+        enrollment.curso.profesor.usuario.id !== currentUser.id
+      ) {
+        throw new ForbiddenException(
+          'Sólo puedes actualizar inscripciones de cursos que dictas.',
+        );
+      }
+    }
+
+    const enrollmentToUpdate = await this.enrollmentsRepository.preload({
+      id,
+      ...dto,
+      fechaInscripcion: dto.fechaInscripcion
+        ? new Date(dto.fechaInscripcion + 'T00:00:00')
+        : undefined,
+    });
+
+    if (!enrollmentToUpdate) {
+      throw new NotFoundException(`Inscripción con id ${id} no encontrada`);
+    }
+
     if (dto.studentId) {
       const student = await this.studentsRepository.findOneBy({
         id: dto.studentId,
       });
-      if (!student)
+      if (!student) {
         throw new NotFoundException(
           `No existe el estudiante con id ${dto.studentId}`,
         );
-      enrollment.estudiante = student;
+      }
+      enrollmentToUpdate.estudiante = student;
     }
 
-    // Cambiar curso
     if (dto.courseId) {
-      const course = await this.coursesRepository.findOneBy({
-        id: dto.courseId,
+      const course = await this.coursesRepository.findOne({
+        where: { id: dto.courseId },
+        relations: ['profesor', 'profesor.usuario'],
       });
-      if (!course)
+      if (!course) {
         throw new NotFoundException(
           `No existe el curso con id ${dto.courseId}`,
         );
-      enrollment.curso = course;
+      }
+      enrollmentToUpdate.curso = course;
     }
 
     try {
-      await this.enrollmentsRepository.save(enrollment);
-      return enrollment;
+      const saved = await this.enrollmentsRepository.save(enrollmentToUpdate);
+
+      return {
+        ...saved,
+        fechaInscripcion: saved.fechaInscripcion?.toISOString().split('T')[0],
+      };
     } catch (error) {
       this.handlerErrors(error);
     }
   }
 
-  async removeEnrollment(id: string) {
-    const enrollment = await this.findOneById(id);
+  async removeEnrollment(id: string, currentUser: any) {
+    const enrollment = await this.findOneById(id, currentUser);
+
+    if (currentUser.rol !== 'admin') {
+      // Profesor → nunca elimina
+      if (currentUser.rol === 'profesor') {
+        throw new ForbiddenException(
+          'Los profesores no pueden eliminar inscripciones.',
+        );
+      }
+
+      // Estudiante → solo su propia inscripción
+      if (enrollment!.estudiante.usuario.id !== currentUser.id) {
+        throw new ForbiddenException(
+          'Solo puedes eliminar tus propias inscripciones.',
+        );
+      }
+    }
+
     await this.enrollmentsRepository.remove(enrollment!);
     return `Se eliminó la inscripción con id: ${id}`;
   }

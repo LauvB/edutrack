@@ -13,44 +13,49 @@ import { StudentsService } from './students.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { GetUser } from '../auth/decorators/get-user.decorator';
 
 @Controller('students')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('admin')
   @Post()
   createStudent(@Body() dto: CreateStudentDto) {
     return this.studentsService.createStudent(dto);
   }
 
+  @Roles('admin', 'profesor')
   @Get()
-  findAll() {
-    return this.studentsService.findAll();
+  findAll(@GetUser() currentUser: any) {
+    return this.studentsService.findAll(currentUser);
   }
 
+  @Roles('admin', 'profesor', 'estudiante')
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.studentsService.findOneById(id);
+  findOne(@Param('id', ParseUUIDPipe) id: string, @GetUser() currentUser: any) {
+    return this.studentsService.findOneById(id, currentUser);
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'estudiante')
   @Patch(':id')
   updateStudent(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateStudentDto,
+    @GetUser() currentUser: any,
   ) {
-    return this.studentsService.updateStudent(id, dto);
+    return this.studentsService.updateStudent(id, dto, currentUser);
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'estudiante')
   @Delete(':id')
-  removeStudent(@Param('id', ParseUUIDPipe) id: string) {
-    return this.studentsService.removeStudent(id);
+  removeStudent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @GetUser() currentUser: any,
+  ) {
+    return this.studentsService.removeStudent(id, currentUser);
   }
 }

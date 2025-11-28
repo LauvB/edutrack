@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -13,8 +14,8 @@ import { isUUID } from 'class-validator';
 import { UserFactoryService } from './factories/user-factory.service';
 import bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
-import { ProfessorEntity } from 'src/professors/entities/professor.entity';
-import { StudentEntity } from 'src/students/entities/student.entity';
+import { ProfessorEntity } from '../professors/entities/professor.entity';
+import { StudentEntity } from '../students/entities/student.entity';
 
 @Injectable()
 export class UsersService {
@@ -75,7 +76,7 @@ export class UsersService {
     }
   }
 
-  async findOneById(id: string) {
+  async findOneById(id: string, currentUser: any) {
     if (!isUUID(id))
       throw new BadRequestException(
         `El termino de busqueda ingresado no es un id valido`,
@@ -88,6 +89,19 @@ export class UsersService {
 
       const perfil = await this.getUserProfile(id);
 
+      if (currentUser.rol === 'admin') {
+        return {
+          ...user,
+          perfil,
+        };
+      }
+
+      if (currentUser.id !== id) {
+        throw new ForbiddenException(
+          'No tiene permisos para acceder a este usuario',
+        );
+      }
+
       return {
         ...user,
         perfil,
@@ -97,7 +111,7 @@ export class UsersService {
     }
   }
 
-  async updateUser(id: string, updateUserDto: UpdateUserDto) {
+  async updateUser(id: string, updateUserDto: UpdateUserDto, currentUser: any) {
     if (updateUserDto.contraseña) {
       updateUserDto.contraseña = await this.hashPassword(
         updateUserDto.contraseña,
@@ -114,6 +128,12 @@ export class UsersService {
     }
 
     try {
+      if (currentUser.rol !== 'admin' && currentUser.id !== id) {
+        throw new ForbiddenException(
+          'No tiene permisos para actualizar este usuario',
+        );
+      }
+
       await this.usersRepository.save(user);
       return user;
     } catch (error) {
@@ -128,7 +148,11 @@ export class UsersService {
    * 3. Si es estudiante (con o sin inscripciones) -> se elimina en cascada y se retorna mensaje de baja.
    */
   async removeUser(id: string) {
-    const user = await this.findOneById(id);
+    const user = await this.usersRepository.findOneBy({ id });
+
+    if (!user) {
+      throw new NotFoundException(`Usuario con id ${id} no encontrado`);
+    }
 
     const professor = await this.professorsRepository.findOne({
       where: { usuario: { id } },

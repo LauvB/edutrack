@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -11,6 +12,7 @@ import { Repository } from 'typeorm';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentEntity } from './entities/student.entity';
+import { ProfessorEntity } from '../professors/entities/professor.entity';
 
 @Injectable()
 export class StudentsService {
@@ -22,6 +24,9 @@ export class StudentsService {
 
     @InjectRepository(UserEntity)
     private readonly usersRepository: Repository<UserEntity>,
+
+    @InjectRepository(ProfessorEntity)
+    private readonly professorsRepository: Repository<ProfessorEntity>,
   ) {}
 
   async createStudent(dto: CreateStudentDto) {
@@ -58,38 +63,142 @@ export class StudentsService {
     }
   }
 
-  async findAll() {
+  async findAll(currentUser: any) {
     try {
-      const students: StudentEntity[] = await this.studentsRepository.find();
-      return { students };
+      if (currentUser.rol === 'admin') {
+        return await this.studentsRepository.find({
+          relations: ['usuario'],
+        });
+      }
+
+      if (currentUser.rol === 'profesor') {
+        const professor = await this.professorsRepository.findOne({
+          where: { usuario: { id: currentUser.id } },
+          relations: [
+            'cursos',
+            'cursos.inscripciones',
+            'cursos.inscripciones.estudiante',
+            'cursos.inscripciones.estudiante.usuario',
+          ],
+        });
+
+        if (!professor) {
+          return [];
+        }
+
+        const studentsMap = new Map<string, StudentEntity>();
+
+        for (const curso of professor.cursos ?? []) {
+          for (const ins of curso.inscripciones ?? []) {
+            if (ins.estudiante) {
+              studentsMap.set(ins.estudiante.id, ins.estudiante);
+            }
+          }
+        }
+
+        return Array.from(studentsMap.values());
+      }
+
+      throw new ForbiddenException(
+        'No tiene permisos para listar estudiantes.',
+      );
     } catch (error) {
       this.handleErrors(error);
     }
   }
 
-  async findOneById(id: string) {
+  async findOneById(id: string, currentUser: any) {
     if (!isUUID(id)) throw new BadRequestException('El Id no es válido');
 
     try {
-      const student = await this.studentsRepository.findOneBy({ id });
+      const student = await this.studentsRepository.findOne({
+        where: { id },
+        relations: [
+          'usuario',
+          'inscripciones',
+          'inscripciones.curso',
+          'inscripciones.curso.profesor',
+          'inscripciones.curso.profesor.usuario',
+        ],
+      });
 
-      if (!student)
+      if (!student) {
         throw new NotFoundException(`Estudiante con id ${id} no encontrado`);
+      }
 
-      return student;
+      if (currentUser.rol === 'admin') {
+        return student;
+      }
+
+      if (currentUser.rol === 'estudiante') {
+        if (student.usuario.id !== currentUser.id) {
+          throw new ForbiddenException(
+            'No tiene permisos para ver este estudiante.',
+          );
+        }
+        return student;
+      }
+
+      if (currentUser.rol === 'profesor') {
+        const isInProfessorCourses =
+          student.inscripciones?.some(
+            (ins) => ins.curso?.profesor?.usuario?.id === currentUser.id,
+          ) ?? false;
+
+        if (!isInProfessorCourses) {
+          throw new ForbiddenException(
+            'No tiene permisos para ver este estudiante.',
+          );
+        }
+
+        return student;
+      }
+
+      throw new ForbiddenException(
+        'No tiene permisos para ver este estudiante.',
+      );
     } catch (error) {
       this.handleErrors(error);
     }
   }
 
-  async updateStudent(id: string, dto: UpdateStudentDto) {
+  async updateStudent(id: string, dto: UpdateStudentDto, currentUser: any) {
+    if (!isUUID(id)) {
+      throw new BadRequestException('El id no es válido');
+    }
     try {
-      const student = await this.studentsRepository.preload({
+      const student = await this.studentsRepository.findOne({
+        where: { id },
+        relations: ['usuario'],
+      });
+
+      if (!student) {
+        throw new NotFoundException(`Estudiante con id ${id} no encontrado`);
+      }
+
+      if (currentUser.rol !== 'admin') {
+        if (
+          currentUser.rol === 'estudiante' &&
+          student.usuario.id !== currentUser.id
+        ) {
+          throw new ForbiddenException(
+            'No tiene permisos para actualizar este estudiante.',
+          );
+        }
+
+        if (currentUser.rol === 'profesor') {
+          throw new ForbiddenException(
+            'Los profesores no pueden actualizar perfiles de estudiantes.',
+          );
+        }
+      }
+
+      const studentToUpdate = await this.studentsRepository.preload({
         id,
         ...dto,
       });
 
-      if (!student) {
+      if (!studentToUpdate) {
         throw new NotFoundException(`Estudiante con id ${id} no encontrado`);
       }
 
@@ -120,22 +229,53 @@ export class StudentsService {
           );
         }
 
-        student.usuario = newUser;
+        studentToUpdate.usuario = newUser;
       }
 
-      await this.studentsRepository.save(student);
-      return student;
+      await this.studentsRepository.save(studentToUpdate);
+      return studentToUpdate;
     } catch (error) {
       this.handleErrors(error);
     }
   }
 
-  async removeStudent(id: string) {
-    const student = await this.findOneById(id);
+  async removeStudent(id: string, currentUser: any) {
+    if (!isUUID(id)) {
+      throw new BadRequestException('El id no es válido');
+    }
 
-    await this.studentsRepository.remove(student);
+    try {
+      const student = await this.studentsRepository.findOne({
+        where: { id },
+        relations: ['usuario'],
+      });
 
-    return `Estudiante con id ${id} eliminado correctamente`;
+      if (!student) {
+        throw new NotFoundException(`Estudiante con id ${id} no encontrado`);
+      }
+
+      if (currentUser.rol !== 'admin') {
+        if (
+          currentUser.rol === 'estudiante' &&
+          student.usuario.id !== currentUser.id
+        ) {
+          throw new ForbiddenException(
+            'No tiene permisos para eliminar este estudiante.',
+          );
+        }
+
+        if (currentUser.rol === 'profesor') {
+          throw new ForbiddenException(
+            'Los profesores no pueden eliminar perfiles de estudiantes.',
+          );
+        }
+      }
+
+      await this.studentsRepository.remove(student);
+      return `Estudiante con id ${id} eliminado correctamente.`;
+    } catch (error) {
+      this.handleErrors(error);
+    }
   }
 
   private handleErrors(error: any): never {
