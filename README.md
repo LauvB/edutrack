@@ -1,26 +1,45 @@
-# EduTrack -- Primera Entrega
+# EduTrack - Backend (NestJS + PostgreSQL + TypeORM + JWT)
 
-## 📌 Descripción General
+EduTrack es un sistema académico diseñado para gestionar usuarios, profesores, estudiantes, cursos e inscripciones, implementado con una arquitectura modular basada en **NestJS**, autenticación mediante **JWT**, persistencia con **PostgreSQL** y control de acceso granular mediante **roles (RBAC)** y **guards personalizados**.
 
-EduTrack Backend es un sistema académico básico construido en
-**NestJS**, diseñado para gestionar:
+---
 
-- Usuarios (profesores y estudiantes)
-- Profesores
-- Estudiantes
-- Cursos
-- Inscripciones
+# 📝 Descripción general
 
-Este proyecto cumple con los requerimientos de la **primera entrega**,
-incluyendo:
+El sistema permite:
 
-✔ Proyecto Nest configurado\
-✔ Integración con PostgreSQL mediante TypeORM\
-✔ Entidades y relaciones del dominio académico\
-✔ DTOs con validaciones\
-✔ CRUD completo funcionando para `Users`\
-✔ Interfaces para todas las entidades\
-✔ Configuración de `ValidationPipe` global
+- Registro y administración de usuarios
+- Creación y gestión de perfiles de profesor y estudiante
+- Gestión de cursos dictados por profesores
+- Inscripción de estudiantes a cursos
+- Administración del sistema mediante rol **administrador**
+
+Toda la lógica de negocio está protegida mediante autenticación JWT y reglas de autorización estrictas según rol.
+
+---
+
+# 🏛 Arquitectura general
+
+Tecnologías principales:
+
+| Tecnología      | Uso                            |
+| --------------- | ------------------------------ |
+| NestJS          | Backend modular en Node.js     |
+| PostgreSQL      | Base de datos                  |
+| TypeORM         | ORM basado en decoradores      |
+| JWT             | Autenticación basada en tokens |
+| Passport        | Estrategias de autenticación   |
+| Class Validator | Validación de DTOs             |
+| BCrypt          | Hash seguro de contraseñas     |
+
+Arquitectura:
+
+- Patrón **Modelo–Servicio–Controlador**
+- Módulos independientes
+- Guards para autorización
+- Decoradores personalizados
+- Seeders reutilizables
+- Relaciones bidireccionales con TypeORM
 
 ---
 
@@ -29,73 +48,39 @@ incluyendo:
     src/
      ├── app.module.ts
      ├── main.ts
+     ├── seeds/
+     ├── auth/
      ├── users/
-     │    ├── dto/
-     │    │   ├── create-user.dto.ts
-     │    │   └── update-user.dto.ts
-     │    ├── entities/
-     │    │   └── user.entity.ts
-     │    ├── interfaces/
-     │    │   └── user.interface.ts
-     │    ├── users.controller.ts
-     │    ├── users.module.ts
-     │    └── users.service.ts
      ├── professors/
-     │    ├── dto/...
-     │    ├── entities/professor.entity.ts
-     │    ├── interfaces/professor.interface.ts
-     │    └── professors.module.ts
      ├── students/
-     │    ├── dto/...
-     │    ├── entities/student.entity.ts
-     │    ├── interfaces/student.interface.ts
-     │    └── students.module.ts
      ├── courses/
-     │    ├── dto/...
-     │    ├── entities/course.entity.ts
-     │    ├── interfaces/course.interface.ts
-     │    └── courses.module.ts
      └── enrollments/
-          ├── dto/...
-          ├── entities/enrollment.entity.ts
-          ├── interfaces/enrollment.interface.ts
-          └── enrollments.module.ts
 
 ---
 
-## 🛠️ Tecnologías Utilizadas
+## ⚙️ Configuración inicial
 
-- **NestJS** (Framework backend Node.js)
-- **TypeORM** (ORM para PostgreSQL)
-- **PostgreSQL**
-- **class-validator** & **class-transformer**
-- **TypeScript**
-
----
-
-## ⚙️ Configuración Inicial
-
-### 1. Instalar dependencias
+### 1. Instalar el proyecto
 
 ```bash
+git clone https://github.com/LauvB/edutrack.git
+cd edutrack/backend
 npm install
 ```
 
-### 2. Instalar dependencias adicionales
-
-```bash
-npm install @nestjs/typeorm typeorm pg class-validator class-transformer
-```
-
-### 3. Configurar base de datos
+### 2. Configurar el entorno
 
 En el archivo `.env`:
 
-    DB_NAME=TestEdutrack
-    DB_HOST=localhost
-    DB_PORT=5432
-    DB_PASSWORD=1234
-    DB_USERNAME=postgres
+    DB_NAME
+    DB_HOST
+    DB_PORT
+    DB_PASSWORD
+    DB_USERNAME
+
+    JWT_SECRET
+    JWT_EXPIRES_IN
+    SALT_ROUNDS
 
 ---
 
@@ -111,88 +96,74 @@ Servidor disponible en:
 
 ---
 
-## 🧩 Entidades Implementadas
+## 🌱 Seeders (Datos iniciales)
 
-Resumen de entidades:
-
-- **User** -- UUID, nombre, correo, contraseña, rol
-- **Professor** -- especialidad, relación 1--1 con User
-- **Student** -- año de ingreso, relación 1--1 con User
-- **Course** -- nombre, descripción, créditos, relación con Professor
-- **Enrollment** -- fecha inscripción, nota, relación con Student y
-  Course
-
----
-
-## 🔐 DTOs y Validación
-
-Todos los DTOs incluyen reglas con `class-validator`, por ejemplo:
-
-```ts
-@IsString()
-@IsNotEmpty()
-nombreCompleto: string;
+```bash
+npm run seed
 ```
 
-Para Users, Students, Professors, Courses y Enrollments.
+Esto genera:
+
+- 1 administrador
+- Profesores iniciales
+- Estudiantes iniciales
+
+Documentación detallada 👉 **[Documento de seeds](./docs/seeds.md)**
 
 ---
 
-## 🔄 CRUD Completo Implementado (Users)
+## 🔐 Flujo de autenticación (JWT)
 
-Para esta entrega, la entidad **Users** cuenta con un CRUD completamente
-funcional.
+1. El usuario inicia sesión mediante `POST /auth/login`
+2. Si las credenciales son correctas:
+   - Se genera `access_token`
+   - Se devuelve el usuario autenticado
+3. Todas las rutas protegidas requieren header:
+   Authorization: Bearer <token>
 
-Además, se documentaron las pruebas y resultados en un archivo aparte:
-
-👉 **[Ver documento de pruebas del CRUD de
-Users](./docs/pruebas-users.md)**
-
-### **POST /users**
-
-Crear usuario.
-
-### **GET /users/getAllUsers**
-
-Obtener todos los usuarios.
-
-### **GET /users/:id**
-
-Obtener un usuario por ID.
-
-### **PATCH /users/:id**
-
-Actualizar un usuario.
-
-### **DELETE /users/:id**
-
-Eliminar un usuario.
+Documentación detallada 👉 **[Documento auth](./docs/auth.md)**
 
 ---
 
-## 📘 Modelo de Datos (Resumen)
+## 🛡 Control de acceso (Roles y Guards)
+
+El sistema implementa:
+
+- `AuthGuard('jwt')`
+- `RolesGuard`
+- Decorador `@Roles()`
+- Decorador `@GetUser()`
+
+Permisos descritos en 👉 **[Roles y guardias](./docs/roles-y-guardias.md)**
+
+---
+
+## 📚 Descripción de módulos
+
+| Módulo            | Descripción                            | Documentación                                  |
+| ----------------- | -------------------------------------- | ---------------------------------------------- |
+| **Auth**          | Login, JWT, validaciones               | [docs/auth.md](docs/auth.md)                   |
+| **Usuarios**      | CRUD de usuarios, reglas de acceso     | [docs/usuarios.md](docs/usuarios.md)           |
+| **Profesores**    | Gestión de profesores, cursos dictados | [docs/profesores.md](docs/profesores.md)       |
+| **Estudiantes**   | Perfiles, inscripciones propias        | [docs/estudiantes.md](docs/estudiantes.md)     |
+| **Cursos**        | Gestión de cursos por profesores       | [docs/cursos.md](docs/cursos.md)               |
+| **Inscripciones** | Inscripción a cursos, notas            | [docs/inscripciones.md](docs/inscripciones.md) |
+
+---
+
+## 📘 Modelo de datos (Resumen)
 
 Relaciones principales:
 
-- User 1--1 Student\
-- User 1--1 Professor\
-- Professor 1--N Course\
-- Course 1--N Enrollment\
-- Student 1--N Enrollment
+- User 1 ── 1 Student
+- User 1 ── 1 Professor
+- Professor 1 ── N Course
+- Course 1 ── N Enrollment
+- Student 1 ── N Enrollment
 
 ---
 
 ## 👨‍💻 Autor
 
 **Laura Beltrán**  
-Proyecto desarrollado como parte del curso de **NestJS** -- Primera
-entrega.
-
----
-
-## 📎 Notas finales
-
-- Las contraseñas aún no están encriptadas (se agregará en entregas
-  futuras).
-- En la segunda entrega se implementarán servicios y controladores
-  para las demás entidades.
+Proyecto desarrollado como parte del curso de **NestJS**
